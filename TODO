@@ -1,0 +1,7 @@
+[ ] Download files
+    use git locally for version control of files?
+[ ] Launch server manager 
+    Maybe make this an "local" thing where it can get the steamcmd software? Maybe
+[ ] Sync changes to remote server files, 
+    Sync git files to remote server (possibly make it able to automatically post to repository as well?)
+    
