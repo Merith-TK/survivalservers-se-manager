@@ -7,11 +7,34 @@ import (
 	"github.com/secsy/goftp"
 )
 
+func isDirectory(client *goftp.Client, remotePath string) (bool, error) {
+	entries, err := client.ReadDir(remotePath)
+	if err != nil {
+		return false, err
+	}
+
+	// If there are any entries, assume it's a directory
+	return len(entries) > 0, nil
+}
+
 func pullData(client *goftp.Client) {
 	fmt.Println("Pulling data from FTP server")
 	// for each entry in conf.Files, key is remote, value is local
 	for _, file := range conf.Files {
-		fetchFolder(client, file.Remote, file.Local)
+		fmt.Println("Checking", file.Remote)
+		// check if file is a folder or a file by checking remote
+		remoteFile, fileErr := client.Stat(file.Remote)
+		if fileErr != nil {
+			panic(fileErr)
+		}
+		if remoteFile == nil {
+			continue
+		}
+		if remoteFile.IsDir() {
+			fetchFolder(client, file.Remote, file.Local)
+		} else {
+			fetchFile(client, file.Remote, file.Local)
+		}
 	}
 }
 func fetchFolder(client *goftp.Client, remote string, local string) {
@@ -33,6 +56,10 @@ func fetchFolder(client *goftp.Client, remote string, local string) {
 		if entry.IsDir() {
 			fetchFolder(client, remote+"/"+entry.Name(), local+"/"+entry.Name())
 		} else {
+			if same, _ := areFilesSame(local+"/"+entry.Name(), remote+"/"+entry.Name(), client); same {
+				fmt.Println("Skipping", remote+"/"+entry.Name())
+				continue
+			}
 			fetchFile(client, remote+"/"+entry.Name(), local+"/"+entry.Name())
 		}
 	}
@@ -49,4 +76,19 @@ func fetchFile(client *goftp.Client, remote string, local string) {
 		panic(fetchErr)
 	}
 	outFile.Close() // Close the file
+}
+
+func areFilesSame(localPath, remotePath string, client *goftp.Client) (bool, error) {
+	localFileInfo, err := os.Stat(localPath)
+	if err != nil {
+		return false, err
+	}
+
+	remoteFileInfo, err := client.Stat(remotePath)
+	if err != nil {
+		return false, err
+	}
+
+	// Compare file size and modification times
+	return localFileInfo.Size() == remoteFileInfo.Size(), nil
 }
